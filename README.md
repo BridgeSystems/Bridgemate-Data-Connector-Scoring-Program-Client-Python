@@ -142,4 +142,6 @@ of the main repository; see [SUPPORT.md](SUPPORT.md).
 
 ## License
 
-LGPL-3.0-only, like the .NET client.
+Copyright © Bridge Systems BV. This library is free software, licensed under the
+**GNU Lesser General Public License v3.0 only** (LGPL-3.0-only) — see [LICENSE](LICENSE) —
+like the [.NET reference client](https://github.com/BridgeSystems/Bridgemate-Data-Connector-Scoring-Program-Client).
