@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bridgemate-dataconnector-client"
+version = "1.0.0"
+description = "Scoring program client for the Bridgemate Data Connector over http. Communicate with Bridgemate Control Software (BCS 5) from a bridge scoring program written in Python."
+readme = "README.md"
+license = "LGPL-3.0-only"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "Bridge Systems BV" }]
+keywords = ["bridge", "scoring", "bcs", "bridgemate", "data-connector"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Games/Entertainment",
+]
+
+[project.urls]
+Homepage = "https://github.com/BridgeSystems/Bridgemate-Data-Connector-Scoring-Program-Client-Python"
+Documentation = "https://github.com/BridgeSystems/Bridgemate-Data-Connector-Scoring-Program-Client/blob/master/Documentation/MD/index.md"
+Issues = "https://github.com/BridgeSystems/Bridgemate-Data-Connector-Scoring-Program-Client-Python/issues"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bridgemate_dataconnector"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

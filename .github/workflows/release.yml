@@ -1,0 +1,54 @@
+name: Release
+
+# Publishes the package to PyPI and creates the git tag and GitHub release.
+#
+# PyPI authentication uses Trusted Publishing (OIDC) — no token secrets. One-time setup on
+# pypi.org: add a (pending) publisher for project bridgemate-dataconnector-client with
+# owner BridgeSystems, repository Bridgemate-Data-Connector-Scoring-Program-Client-Python,
+# workflow release.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (semver, without the v prefix), e.g. 1.0.0'
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the version matches pyproject.toml
+        run: |
+          grep -Fq "version = \"${{ inputs.version }}\"" pyproject.toml \
+            || { echo "pyproject.toml does not carry version ${{ inputs.version }}; bump it first."; exit 1; }
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Test the built wheel
+        run: |
+          pip install pytest dist/*.whl
+          python -m pytest
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --target "${{ github.sha }}" \
+            --title "v${{ inputs.version }}" \
+            --generate-notes

@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: getting started (interactive)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/getting_started.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Python: getting started (--scenario)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/examples/getting_started.py",
+            "args": ["--scenario"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Python: run tests (pytest)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
