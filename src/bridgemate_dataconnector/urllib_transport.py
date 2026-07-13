@@ -19,6 +19,10 @@ class UrllibTransport(HttpTransport):
 
     def __init__(self, timeout_seconds: float = 100.0):
         self._timeout_seconds = timeout_seconds
+        # The data connector lives on localhost or the LAN: a system proxy without a localhost
+        # bypass hijacks the request (503). The default opener honors proxy environment variables
+        # and, on Windows, the registry proxy settings, so use an opener with proxying disabled.
+        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
     def get(self, url: str) -> str:
         return self._execute(url, None)
@@ -36,7 +40,7 @@ class UrllibTransport(HttpTransport):
             method = "POST"
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(request, timeout=self._timeout_seconds) as response:
+            with self._opener.open(request, timeout=self._timeout_seconds) as response:
                 # urlopen only returns 2xx responses; anything else raises HTTPError below.
                 return response.read().decode("utf-8")
         except urllib.error.HTTPError as error:
