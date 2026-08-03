@@ -70,6 +70,28 @@ polled queue item per data type is cached on the client instance and used by
 `accept_queue_data()`; in a web application poll and accept within the same request, or track the
 queue item ids yourself via `get_last_queue_item_id()`.
 
+### Validation
+
+Every outgoing DTO can be validated before it is sent:
+
+```python
+from bridgemate_dataconnector import validate_init_dto
+
+if not validate_init_dto(init_dto):
+    print(init_dto.validation_messages)
+```
+
+Each `validate_*_dto` function fills `dto.validation_messages` and returns `True` when the DTO is
+valid. Validating client-side is advisory — it catches problems before a round trip — but the Data
+Connector service re-validates authoritatively and rejects invalid data with `error_type`
+`Validation`. One rule worth calling out: a `ParticipationDTO.round_number` greater than one is
+only valid for sections created with `has_explicit_participations` set; all other sections carry
+round zero or one and BCS derives the remaining rounds from the movement.
+
+The validators are hand-written parity ports of the .NET reference client's `Validate()` methods:
+they produce the same boolean result and the same messages (text and order), asserted against
+generated golden fixtures in `tests/fixtures/validation`.
+
 ## Getting started sample
 
 [examples/getting_started.py](examples/getting_started.py) is a small console application that
