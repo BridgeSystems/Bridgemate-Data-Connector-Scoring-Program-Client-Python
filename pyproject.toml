@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bridgemate-dataconnector-client"
-version = "1.0.0"
+version = "1.1.0"
 description = "Scoring program client for the Bridgemate Data Connector over http. Communicate with Bridgemate Control Software (BCS 5) from a bridge scoring program written in Python."
 readme = "README.md"
 license = "LGPL-3.0-only"
