@@ -130,6 +130,11 @@ def _is_invalid_pin_code(value: str | None) -> bool:
 
 def _participation_to_string(dto: ParticipationDTO) -> str:
     """Port of ParticipationDTO.ToString(), embedded in InitDTO/SectionUpdateDTO messages."""
+    if dto.is_removal:
+        return (
+            f"REMOVE {_s(dto.section_letters)}{dto.table_number} {_enum_name(dto.direction)} "
+            f"round {dto.round_number}"
+        )
     swap = "SWAP " if dto.is_player_swap else ""
     return (
         f"{swap}{_s(dto.section_letters)}{dto.table_number} {_enum_name(dto.direction)} "
@@ -166,6 +171,23 @@ def validate_participation_dto(
         messages.append(
             f"Invalid RoundNumber ({dto.round_number}). The value cannot be negative."
         )
+    if dto.is_removal:
+        # A removal empties the seat, so it carries no player at all.
+        if (
+            not _is_null_or_whitespace(dto.player_number)
+            or not _is_null_or_whitespace(dto.first_name)
+            or not _is_null_or_whitespace(dto.last_name)
+            or not _is_null_or_whitespace(dto.country_code)
+        ):
+            messages.append(
+                "A removal (IsRemoval) must not specify a PlayerNumber, FirstName, LastName or CountryCode."
+            )
+        if dto.is_player_swap:
+            messages.append(
+                "A participation cannot be both a removal (IsRemoval) and a player swap (IsPlayerSwap)."
+            )
+        dto.validation_messages = messages
+        return not messages
     if _is_null_or_whitespace(dto.last_name) and _is_null_or_whitespace(dto.player_number):
         messages.append("Either the LastName or the PlayerNumber must be specified.")
     if (
