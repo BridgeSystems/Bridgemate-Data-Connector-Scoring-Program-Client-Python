@@ -15,8 +15,10 @@ class ParticipationDTO:
     round, position). This requires the section to have been created with
     HasExplicitParticipations set to true. BCS then stores each participation for its own round
     exactly as sent and does not calculate seatings from the movement. Use this for individual
-    sessions and other formats where partnerships change between rounds. The combination of both
-    playernumber and name details is not supported.
+    sessions and other formats where partnerships change between rounds. 4. To report that a
+    seat was emptied (IsRemoval): the player who sat there was removed. Such a DTO carries no
+    player number and no name. The combination of both playernumber and name details is not
+    supported.
     """
 
     # Required. The guid of the session the participation belongs to. A string built from a Guid,
@@ -51,6 +53,14 @@ class ParticipationDTO:
     # with West.
     is_player_swap: bool = False
 
+    # Signals that the player who sat at this seat was removed and the seat is now empty. The DTO
+    # then carries no player: PlayerNumber, FirstName, LastName and CountryCode must be empty. The
+    # seat is identified by the session, section, table, direction and round, with the same rules as
+    # any participation: round zero or one means the first round, in a section without explicit
+    # participations the player leaves the pair (every round), in a section with explicit
+    # participations only the given round is emptied.
+    is_removal: bool = False
+
     # Optional, must only be used when the playernumber is empty.
     first_name: str | None = None
 
@@ -73,6 +83,7 @@ class ParticipationDTO:
             "RoundNumber": self.round_number,
             "PlayerNumber": self.player_number,
             "IsPlayerSwap": self.is_player_swap,
+            "IsRemoval": self.is_removal,
             "FirstName": self.first_name,
             "LastName": self.last_name,
             "CountryCode": self.country_code,
@@ -90,6 +101,7 @@ class ParticipationDTO:
         dto.round_number = data["RoundNumber"] if data.get("RoundNumber") is not None else 0
         dto.player_number = data.get("PlayerNumber")
         dto.is_player_swap = data["IsPlayerSwap"] if data.get("IsPlayerSwap") is not None else False
+        dto.is_removal = data["IsRemoval"] if data.get("IsRemoval") is not None else False
         dto.first_name = data.get("FirstName")
         dto.last_name = data.get("LastName")
         dto.country_code = data.get("CountryCode")
