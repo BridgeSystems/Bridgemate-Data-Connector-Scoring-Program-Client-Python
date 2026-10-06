@@ -1,8 +1,11 @@
 """The scoring program client. See DataConnectorClient."""
 
 import json
+import ntpath
 import re
+import sys
 import time
+from typing import Callable
 
 from .dto import (
     Bridgemate2SettingsDTO,
@@ -55,6 +58,13 @@ class DataConnectorClient:
     # Part of the expected response body when pinging the Data Connector with a GET request.
     API_PING_RESPONSE = "Bridgemate dataconnector service version"
 
+    # The registry key under HKEY_CURRENT_USER where the Data Connector service of the current Windows
+    # user publishes its http port (value HttpPort) and its own process id (value HttpProcessId).
+    PUBLICATION_REGISTRY_KEY = r"Software\Bridge Systems BV\BridgemateDataConnector"
+
+    # The process name of the Data Connector service (its executable without the extension).
+    DATA_CONNECTOR_PROCESS_NAME = "BridgeSystems.Bridgemate.DataConnectorService"
+
     def __init__(
         self,
         club_id: str,
@@ -97,21 +107,87 @@ class DataConnectorClient:
 
         On Windows the Data Connector service publishes the port it listens on in the registry
         (HKEY_CURRENT_USER\\Software\\Bridge Systems BV\\BridgemateDataConnector, value HttpPort);
-        when nothing is published the default port 5079 is assumed.
+        when nothing is published, or the Data Connector that published it no longer runs, the
+        default port 5079 is assumed.
         """
         try:
             import winreg  # Only available on Windows; guarded by the except below.
 
             with winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER, r"Software\Bridge Systems BV\BridgemateDataConnector"
+                winreg.HKEY_CURRENT_USER, DataConnectorClient.PUBLICATION_REGISTRY_KEY
             ) as key:
                 value, value_type = winreg.QueryValueEx(key, "HttpPort")
-                if value_type == winreg.REG_DWORD and 0 < value <= 65535:
-                    return f"http://localhost:{value}"
+                try:
+                    process_id, process_id_type = winreg.QueryValueEx(key, "HttpProcessId")
+                    if process_id_type != winreg.REG_DWORD:
+                        process_id = None
+                except OSError:
+                    process_id = None  # Published by a Data Connector that predates it.
+            if value_type == winreg.REG_DWORD:
+                port = DataConnectorClient._published_port(
+                    value, process_id, DataConnectorClient._is_data_connector_running
+                )
+                if port is not None:
+                    return f"http://localhost:{port}"
         except (ImportError, OSError):
             # Non-Windows host, or the key/value is absent: fall through to the default.
             pass
         return f"http://localhost:{DataConnectorClient.DEFAULT_PORT}"
+
+    @staticmethod
+    def _published_port(
+        port: int, process_id: int | None, is_running: Callable[[int], bool]
+    ) -> int | None:
+        """The published port, or None when it is invalid or the Data Connector that published it
+        (value HttpProcessId) no longer runs: a Data Connector that was killed, for instance by the
+        Data Connector of an old installation, leaves its values behind. Without a process id (Data
+        Connectors that predate it) the port is trusted.
+        """
+        if not 0 < port <= 65535:
+            return None
+        if process_id is not None and not is_running(process_id):
+            return None
+        return port
+
+    @staticmethod
+    def _is_data_connector_running(process_id: int) -> bool:
+        """Whether the process with the given id runs and is the Data Connector service. Checking the
+        executable also guards against the process id having been reused by an unrelated process.
+        """
+        if sys.platform != "win32":
+            return True
+        import ctypes
+        from ctypes import wintypes
+
+        process_query_limited_information = 0x1000
+        error_access_denied = 5
+        still_active = 259
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        kernel32.QueryFullProcessImageNameW.argtypes = (
+            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)
+        )
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+
+        handle = kernel32.OpenProcess(process_query_limited_information, False, process_id)
+        if not handle:
+            # Access denied means the process exists but cannot be inspected: trust the publication.
+            return ctypes.get_last_error() == error_access_denied
+        try:
+            exit_code = wintypes.DWORD()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)) and exit_code.value != still_active:
+                return False
+            size = wintypes.DWORD(1024)
+            buffer = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+                return True  # The executable cannot be read: trust the publication.
+            executable = ntpath.basename(buffer.value)
+            return executable.lower() == (DataConnectorClient.DATA_CONNECTOR_PROCESS_NAME + ".exe").lower()
+        finally:
+            kernel32.CloseHandle(handle)
 
     def connect(self) -> ScoringProgramResponse:
         """Checks if the Data Connector can be reached by sending a GET request to its base address."""

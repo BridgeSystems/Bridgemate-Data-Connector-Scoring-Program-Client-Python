@@ -3,6 +3,8 @@ the PHP/Java DataConnectorClientTest.
 """
 
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -55,6 +57,40 @@ def test_connect_failure_returns_no_connection(client, transport):
     response = client.connect()
     assert response.data_type == DataConnectorResponseData.Error
     assert response.error_type == ErrorType.NoConnection
+
+
+def test_published_port_without_process_id_is_trusted():
+    def not_expected(process_id):
+        raise AssertionError("Not expected to be asked.")
+
+    assert DataConnectorClient._published_port(5080, None, not_expected) == 5080
+
+
+def test_published_port_of_a_running_data_connector_is_used():
+    asked = []
+
+    def is_running(process_id):
+        asked.append(process_id)
+        return True
+
+    assert DataConnectorClient._published_port(5080, 1000, is_running) == 5080
+    assert asked == [1000]
+
+
+def test_published_port_of_a_data_connector_that_no_longer_runs_is_ignored():
+    assert DataConnectorClient._published_port(5080, 1000, lambda process_id: False) is None
+
+
+def test_invalid_published_port_is_ignored():
+    assert DataConnectorClient._published_port(0, None, lambda process_id: True) is None
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Process inspection is Windows only.")
+def test_process_inspection_tells_the_data_connector_from_other_and_absent_processes():
+    # The test runner is a running process, but not the Data Connector.
+    assert DataConnectorClient._is_data_connector_running(os.getpid()) is False
+    # A process id that is not in use (process ids are multiples of 4 on Windows).
+    assert DataConnectorClient._is_data_connector_running(0x7FFFFFFC) is False
 
 
 def test_send_results_builds_the_envelope_and_filters_by_session(client, transport):
